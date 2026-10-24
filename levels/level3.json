@@ -1,0 +1,22 @@
+{
+  "name": "Level 3 - Plant Boss",
+  "theme": "jungle",
+  "boss": "plant",
+  "start_count": 20,
+  "speed": 350,
+  "finish_z": 6800,
+  "objects": [
+    {"type": "gate_pair", "z": 700,  "left": ["x", 3],  "right": ["+", 30]},
+    {"type": "obstacle",  "z": 1200, "x": -75, "width": 150, "damage": 20},
+    {"type": "obstacle",  "z": 1600, "x": 75,  "width": 150, "damage": 20},
+    {"type": "gate_pair", "z": 2100, "left": ["+", 40], "right": ["x", 2]},
+    {"type": "enemy",     "z": 2600, "count": 40},
+    {"type": "gate_pair", "z": 3100, "left": ["x", 3],  "right": ["+", 50]},
+    {"type": "obstacle",  "z": 3600, "x": -75, "width": 150, "damage": 30},
+    {"type": "obstacle",  "z": 4000, "x": 75,  "width": 150, "damage": 30},
+    {"type": "gate_pair", "z": 4500, "left": ["-", 30], "right": ["x", 2]},
+    {"type": "obstacle",  "z": 5000, "x": 0,   "width": 150, "damage": 40},
+    {"type": "gate_pair", "z": 5500, "left": ["x", 2],  "right": ["+", 60]},
+    {"type": "enemy",     "z": 6200, "count": 200}
+  ]
+}

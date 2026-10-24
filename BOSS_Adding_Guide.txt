@@ -1,0 +1,31 @@
+  ### How to Add Another Boss (Step-by-Step)
+
+  #### Step 1: Add the New Boss Class in boss.py
+
+  Below ScorpionBoss, define your new boss class (e.g., DragonBoss or GolemBoss):
+
+    # Inside boss.py
+
+    class DragonBoss:
+        def __init__(self, z, max_hp=2000):
+            self.x = 0.0
+            self.z = z
+            self.max_hp = max_hp
+            self.hp = max_hp
+            self.state = STATE_IDLE
+            # Load dragon spritesheet, set custom attack speeds, etc.
+            ...
+  ──────
+  #### Step 2: Import and Spawn it in main.py
+
+  1. Import the boss at the top of main.py:
+    from boss import ScorpionBoss, PlantBoss
+
+  2. Select which boss spawns for each level:
+  In main.py -> reset() / update():
+    # Stage 2: Scorpion Boss (HP: 1000)
+    # Stage 3: Plant Boss (HP: 1500)
+    if is_stage_2:
+        self.boss = ScorpionBoss(z=self.level.finish_z + 260, max_hp=1000)
+    elif is_stage_3:
+        self.boss = PlantBoss(z=self.level.finish_z + 260, max_hp=1500)

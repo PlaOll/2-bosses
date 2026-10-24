@@ -1,0 +1,18 @@
+{
+  "name": "Level 1",
+  "theme": "plains",
+  "boss": null,
+  "start_count": 10,
+  "speed": 300,
+  "finish_z": 6200,
+  "objects": [
+    {"type": "gate_pair", "z": 800,  "left": ["+", 20], "right": ["x", 2]},
+    {"type": "obstacle",  "z": 1500, "x": -75, "width": 150, "damage": 5},
+    {"type": "gate_pair", "z": 2200, "left": ["-", 10], "right": ["x", 3]},
+    {"type": "obstacle",  "z": 2900, "x": 75,  "width": 150, "damage": 10},
+    {"type": "gate_pair", "z": 3600, "left": ["/", 3],  "right": ["+", 35]},
+    {"type": "gate_pair", "z": 4300, "left": ["x", 2],  "right": ["+", 40]},
+    {"type": "obstacle",  "z": 5000, "x": 0,   "width": 100, "damage": 15},
+    {"type": "enemy",     "z": 5600, "count": 40}
+  ]
+}

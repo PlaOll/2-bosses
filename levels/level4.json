@@ -1,0 +1,23 @@
+{
+  "name": "Level 4 - The Gauntlet",
+  "theme": "desert",
+  "boss": null,
+  "start_count": 25,
+  "speed": 380,
+  "finish_z": 7400,
+  "objects": [
+    {"type": "gate_pair", "z": 600,  "left": ["+", 30], "right": ["x", 2]},
+    {"type": "gate_pair", "z": 1100, "left": ["x", 3],  "right": ["-", 15]},
+    {"type": "enemy",     "z": 1600, "count": 50},
+    {"type": "obstacle",  "z": 2100, "x": -75, "width": 150, "damage": 35},
+    {"type": "obstacle",  "z": 2550, "x": 75,  "width": 150, "damage": 35},
+    {"type": "gate_pair", "z": 3100, "left": ["x", 2],  "right": ["+", 80]},
+    {"type": "enemy",     "z": 3650, "count": 80},
+    {"type": "gate_pair", "z": 4200, "left": ["-", 40], "right": ["x", 2]},
+    {"type": "obstacle",  "z": 4700, "x": 0,   "width": 150, "damage": 50},
+    {"type": "gate_pair", "z": 5200, "left": ["+", 120],"right": ["x", 2]},
+    {"type": "obstacle",  "z": 5750, "x": -60, "width": 150, "damage": 60},
+    {"type": "gate_pair", "z": 6250, "left": ["x", 2],  "right": ["/", 2]},
+    {"type": "enemy",     "z": 6850, "count": 350}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Level 2 - Scorpion Boss",
+  "theme": "desert",
+  "boss": "scorpion",
+  "start_count": 15,
+  "speed": 320,
+  "finish_z": 6400,
+  "objects": [
+    {"type": "gate_pair", "z": 800,  "left": ["x", 2],  "right": ["+", 20]},
+    {"type": "obstacle",  "z": 1400, "x": -75, "width": 150, "damage": 10},
+    {"type": "gate_pair", "z": 2000, "left": ["-", 15], "right": ["x", 3]},
+    {"type": "obstacle",  "z": 2600, "x": 75,  "width": 150, "damage": 15},
+    {"type": "gate_pair", "z": 3200, "left": ["+", 30], "right": ["/", 3]},
+    {"type": "gate_pair", "z": 3800, "left": ["x", 2],  "right": ["+", 40]},
+    {"type": "obstacle",  "z": 4400, "x": 0,   "width": 120, "damage": 20},
+    {"type": "gate_pair", "z": 5000, "left": ["x", 2],  "right": ["+", 50]},
+    {"type": "enemy",     "z": 5600, "count": 80}
+  ]
+}

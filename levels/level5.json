@@ -1,0 +1,25 @@
+{
+  "name": "Level 5 - Final Stand",
+  "theme": "jungle",
+  "boss": null,
+  "start_count": 30,
+  "speed": 410,
+  "finish_z": 8000,
+  "objects": [
+    {"type": "gate_pair", "z": 600,  "left": ["+", 20], "right": ["x", 2]},
+    {"type": "gate_pair", "z": 1100, "left": ["x", 2],  "right": ["-", 10]},
+    {"type": "obstacle",  "z": 1550, "x": -75, "width": 150, "damage": 30},
+    {"type": "gate_pair", "z": 2000, "left": ["-", 20], "right": ["x", 3]},
+    {"type": "enemy",     "z": 2450, "count": 80},
+    {"type": "gate_pair", "z": 2950, "left": ["x", 2],  "right": ["/", 2]},
+    {"type": "obstacle",  "z": 3400, "x": 0,   "width": 150, "damage": 60},
+    {"type": "gate_pair", "z": 3900, "left": ["+", 100],"right": ["x", 2]},
+    {"type": "obstacle",  "z": 4350, "x": 75,  "width": 150, "damage": 80},
+    {"type": "gate_pair", "z": 4800, "left": ["x", 3],  "right": ["-", 100]},
+    {"type": "enemy",     "z": 5300, "count": 300},
+    {"type": "gate_pair", "z": 5800, "left": ["/", 3],  "right": ["x", 2]},
+    {"type": "obstacle",  "z": 6300, "x": 0,   "width": 150, "damage": 100},
+    {"type": "gate_pair", "z": 6800, "left": ["x", 2],  "right": ["+", 300]},
+    {"type": "enemy",     "z": 7400, "count": 2000}
+  ]
+}
