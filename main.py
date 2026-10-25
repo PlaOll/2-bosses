@@ -45,6 +45,7 @@ class Game:
         self.selected = 0                       # Currently highlighted level index in the menu
         self.scores = scores.load_scores()      # High scores dictionary loaded from disk
         self.unlock_all = False                 # Toggle with 'U' key in menu to unlock all stages for debugging
+        self.show_hitboxes = False              # Toggle with 'F' key to show hitboxes
         self.state = MENU                       # Current state machine state
         self.reset()
 
@@ -78,6 +79,9 @@ class Game:
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    self.show_hitboxes = not self.show_hitboxes
+
                 if self.state == MENU:
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self.move_selection(-1)
@@ -174,15 +178,15 @@ class Game:
         # Win/Loss and Boss transition checks
         if self.crowd.count <= 0:
             self.finish_level(False)
-        elif self.crowd.z >= self.level.finish_z:
-            if self.has_boss:
-                self.is_boss_fight = True
-                self.crowd.z = self.level.finish_z
-                self.crowd.road_half_w = 340
-                self.camera.z = self.level.finish_z - C.CROWD_OFFSET
-                self.boss = spawn_boss(self.level.boss, self.level.finish_z)
-            else:
-                self.finish_level(True)
+        elif self.has_boss and self.crowd.z >= self.level.finish_z:
+            self.is_boss_fight = True
+            self.crowd.z = self.level.finish_z
+            self.crowd.road_half_w = 340
+            self.camera.z = self.level.finish_z - C.CROWD_OFFSET
+            self.boss = spawn_boss(self.level.boss, self.level.finish_z)
+        elif not self.has_boss and self.crowd.all_crossed(self.level.finish_z):
+            self.finish_level(True)
+
 
     # ==========================================================================
     # Rendering
@@ -213,6 +217,28 @@ class Game:
 
         # 5. Player crowd (nearest to camera)
         self.crowd.draw(self.screen, cam, self.font)
+
+        # 6. Debug collision hitboxes
+        if self.show_hitboxes:
+            self.draw_hitboxes()
+
+    def draw_hitboxes(self):
+        """Render collision wireframes and hitboxes for all active game entities."""
+        cam = self.camera
+
+        # 1. Track objects (gates, obstacles, enemies)
+        for obj in self.level.objects:
+            if hasattr(obj, "draw_hitbox"):
+                obj.draw_hitbox(self.screen, cam)
+
+        # 2. Boss
+        if self.boss and hasattr(self.boss, "draw_hitbox"):
+            self.boss.draw_hitbox(self.screen, cam)
+
+        # 3. Player Crowd
+        if hasattr(self.crowd, "draw_hitbox"):
+            self.crowd.draw_hitbox(self.screen, cam)
+
 
     def draw(self):
         """Render active game screen based on state machine."""

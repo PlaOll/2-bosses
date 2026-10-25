@@ -54,7 +54,7 @@ ENEMY_COLOR = (220, 50, 50)      # Enemy crowd UI and indicator color (Red)
 GATE_GOOD = (60, 140, 255)       # Positive multiplier/addition gate color (Blue)
 GATE_BAD = (230, 70, 70)         # Negative subtraction/division gate color (Red)
 OBSTACLE_COLOR = (200, 60, 30)   # Road obstacle color
-FINISH_COLOR = (20, 20, 20)      # Finish line stripe color
+FINISH_COLOR = (255, 255, 255)      # Finish line stripe color
 WHITE = (255, 255, 255)          # Standard white
 BLACK = (0, 0, 0)                # Standard black
 

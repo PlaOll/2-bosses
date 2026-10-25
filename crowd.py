@@ -349,3 +349,43 @@ class Crowd:
                 bg = text.get_rect(center=(sx, sy - 70 * scale)).inflate(10, 4)
                 pygame.draw.rect(screen, C.PLAYER_COLOR, bg, border_radius=6)
                 screen.blit(text, text.get_rect(center=bg.center))
+
+    def draw_hitbox(self, screen, camera):
+        """Render debug collision hitboxes for all crowd members and cluster center."""
+        for p in self.people:
+            pz = self.z + p.dz
+            if not camera.visible(pz):
+                continue
+            sx, sy, scale = camera.project(self.x + p.dx, pz)
+            if scale <= 0:
+                continue
+            r = max(2, int(p.radius * scale))
+            pygame.draw.circle(screen, (50, 255, 50), (int(sx), int(sy)), r, 1)
+            pygame.draw.circle(screen, (50, 255, 50), (int(sx), int(sy)), 1)
+
+        if camera.visible(self.z):
+            cx, cy, cscale = camera.project(self.x, self.z)
+            if cscale > 0:
+                pygame.draw.circle(screen, (0, 255, 255), (int(cx), int(cy)), max(2, int(3 * cscale)), 1)
+
+    @property
+    def min_z(self):
+        """World Z position of the rearmost runner in the crowd."""
+        if not self.people:
+            return self.z
+        return min(self.z + p.dz for p in self.people)
+
+    def all_crossed(self, finish_z):
+        """Check if all runners in the crowd have crossed finish_z.
+
+        Args:
+            finish_z (float): World Z coordinate to test.
+
+        Returns:
+            bool: True if every active runner has crossed finish_z.
+        """
+        if not self.people:
+            return self.z >= finish_z
+        return all((self.z + p.dz) >= finish_z for p in self.people)
+
+

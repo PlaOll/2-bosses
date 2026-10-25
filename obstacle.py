@@ -89,3 +89,15 @@ class Obstacle:
         x2, _, _ = camera.project(self.x + self.width / 2, self.z)
         h = 25 * scale
         pygame.draw.rect(screen, C.OBSTACLE_COLOR, (x1, y - h, x2 - x1, h))
+
+    def draw_hitbox(self, screen, camera):
+        """Render debug collision hitbox bounding box for the obstacle."""
+        if not camera.visible(self.z):
+            return
+        x1, y, scale = camera.project(self.x - self.width / 2, self.z)
+        x2, _, _ = camera.project(self.x + self.width / 2, self.z)
+        h = 25 * scale
+        rect = pygame.Rect(x1, y - h, x2 - x1, h)
+        pygame.draw.rect(screen, (255, 220, 0), rect, width=2)
+        pygame.draw.line(screen, (255, 60, 0), (x1, y), (x2, y), width=2)
+

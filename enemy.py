@@ -363,3 +363,19 @@ class EnemyGroup:
                 bg = text_scaled.get_rect(center=(sx, sy - 36 * scale)).inflate(6, 2)
                 pygame.draw.rect(screen, (210, 45, 45), bg, border_radius=4)
                 screen.blit(text_scaled, text_scaled.get_rect(center=bg.center))
+
+    def draw_hitbox(self, screen, camera):
+        """Render debug collision hitboxes for all enemy members."""
+        if self.count <= 0:
+            return
+        for m in self.members:
+            mz = self.z + m.dz
+            if not camera.visible(mz):
+                continue
+            sx, sy, scale = camera.project(self.x + m.dx, mz)
+            if scale <= 0:
+                continue
+            r = max(2, int(m.radius * scale))
+            pygame.draw.circle(screen, (255, 60, 60), (int(sx), int(sy)), r, 1)
+            pygame.draw.circle(screen, (255, 60, 60), (int(sx), int(sy)), 1)
+

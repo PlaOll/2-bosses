@@ -142,3 +142,18 @@ class GatePair:
             size = max(1, int(text.get_width() * min(scale, 1.5))), max(1, int(text.get_height() * min(scale, 1.5)))
             text = pygame.transform.smoothscale(text, size)
             screen.blit(text, text.get_rect(center=rect.center))
+
+    def draw_hitbox(self, screen, camera):
+        """Render debug collision boundary wireframes for both gate lanes."""
+        if self.used or not camera.visible(self.z):
+            return
+        for gate in (self.left, self.right):
+            x1, y, scale = camera.project(gate.x_min, self.z)
+            x2, _, _ = camera.project(gate.x_max, self.z)
+            h = C.GATE_HEIGHT * scale
+            rect = pygame.Rect(x1 + 2, y - h, x2 - x1 - 4, h)
+            pygame.draw.rect(screen, (0, 255, 255), rect, width=2)
+        cx, cy, cscale = camera.project(0, self.z)
+        if cscale > 0:
+            pygame.draw.line(screen, (255, 255, 0), (cx, cy), (cx, cy - C.GATE_HEIGHT * cscale), 2)
+
