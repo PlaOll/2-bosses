@@ -64,6 +64,7 @@ class Game:
         self.next_index = 0                     # Index of oncoming track object in level.objects
         self.boss = None                        # Active boss instance (spawned when reaching finish line)
         self.is_boss_fight = False              # True during active arena combat
+        self.arena_crowd_z = 0.0                # Locked crowd Z position during boss battle
         self.boss_class = get_boss_class(getattr(self.level, "boss", None))
         self.has_boss = self.boss_class is not None
         self.tufts, self.tuft_zs = self.theme.generate_tufts(self.level.finish_z, len(self.tuft_sprites))
@@ -114,6 +115,9 @@ class Game:
             keys = pygame.key.get_pressed()
             direction = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
             speed = 250 if self.is_boss_fight else self.level.speed
+            # While boss is spawning, crowd stays idle watching the spawn intro
+            if self.is_boss_fight and self.boss and getattr(self.boss, "is_spawning", False):
+                direction = 0
             self.crowd.move(direction, self.dt, speed)
 
     def unlocked(self, i):
@@ -150,10 +154,11 @@ class Game:
 
         # ---------------- Boss Battle Phase ----------------
         if self.is_boss_fight:
-            # Lock camera and crowd forward Z progress to the arena platform
-            self.camera.z = self.level.finish_z - C.CROWD_OFFSET
-            self.crowd.z = self.level.finish_z
-            self.crowd.road_half_w = 340  # Broaden side-stepping boundary on arena platform
+            # Lock camera and crowd forward Z progress to the arena dodging road
+            self.camera.z = self.arena_crowd_z - C.CROWD_OFFSET
+            self.crowd.z = self.arena_crowd_z
+            self.crowd.is_running_forward = False
+            self.crowd.road_half_w = getattr(C, "BOSS_DODGE_ROAD_HALF_W", 340)  # Broaden side-stepping boundary on dodging road
             self.crowd.update(self.dt)
             self.camera.follow(self.crowd.x, self.dt, speed=6.0)
 
@@ -168,6 +173,7 @@ class Game:
         # ---------------- Normal Running Phase ----------------
         self.camera.z += self.level.speed * self.dt
         self.crowd.z = self.camera.z + C.CROWD_OFFSET
+        self.crowd.is_running_forward = True
         self.crowd.update(self.dt)
         self.camera.follow(self.crowd.x, self.dt)
 
@@ -178,12 +184,15 @@ class Game:
         # Win/Loss and Boss transition checks
         if self.crowd.count <= 0:
             self.finish_level(False)
-        elif self.has_boss and self.crowd.z >= self.level.finish_z:
+        elif self.has_boss and self.crowd.all_crossed(self.level.finish_z):
             self.is_boss_fight = True
-            self.crowd.z = self.level.finish_z
-            self.crowd.road_half_w = 340
-            self.camera.z = self.level.finish_z - C.CROWD_OFFSET
-            self.boss = spawn_boss(self.level.boss, self.level.finish_z)
+            self.crowd.is_running_forward = False
+            self.crowd.road_half_w = getattr(C, "BOSS_DODGE_ROAD_HALF_W", 340)
+            # Center crowd comfortably on the dodging road past finish line
+            self.arena_crowd_z = self.level.finish_z + (getattr(C, "BOSS_DODGE_ROAD_LENGTH", 180) / 2.0)
+            self.crowd.z = self.arena_crowd_z
+            self.camera.z = self.arena_crowd_z - C.CROWD_OFFSET
+            self.boss = spawn_boss(self.level.boss, self.level.finish_z, start_spawn=True)
         elif not self.has_boss and self.crowd.all_crossed(self.level.finish_z):
             self.finish_level(True)
 
@@ -201,8 +210,8 @@ class Game:
             self.tufts, self.tuft_zs, self.tuft_sprites, self.road_rows, self.clouds
         )
 
-        # 2. Boss Arena or Finish Line
-        if self.has_boss and (cam.visible(self.level.finish_z) or cam.visible(self.level.finish_z + 300)):
+        # 2. Boss Dodging Road or Finish Line
+        if self.has_boss and (cam.visible(self.level.finish_z) or cam.visible(self.level.finish_z + 300) or cam.visible(self.level.finish_z - 150)):
             self.theme.draw_arena(self.screen, cam, self.level.finish_z)
         elif not self.has_boss:
             self.level.draw_finish_line(self.screen, cam)

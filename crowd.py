@@ -134,6 +134,47 @@ class Crowd:
             frame_left = pygame.transform.flip(frame_right, True, False)
             self.frames_left.append(frame_left)
 
+        # ----------------------------------------------------------------------
+        # Idle spritesheet loading and frame slicing
+        # ----------------------------------------------------------------------
+        idle_candidates = [
+            ASSET_DIR / "Idle-Sheet.png",
+            ASSET_DIR / "16x32 Idle-Sheet.png",
+            ASSET_DIR / "Idle.png",
+            ASSET_DIR / "16x32 Idle.png",
+            Path("assets/16x32/Idle-Sheet.png"),
+            Path("assets/16x32/16x32 Idle-Sheet.png"),
+        ]
+        self.sheet_idle = None
+        for candidate in idle_candidates:
+            try:
+                if candidate.exists():
+                    raw_idle = pygame.image.load(str(candidate))
+                    self.sheet_idle = raw_idle.convert_alpha() if pygame.display.get_surface() else raw_idle
+                    break
+            except (pygame.error, FileNotFoundError, OSError):
+                continue
+
+        if self.sheet_idle is None:
+            self.sheet_idle = self.sheet_straight
+
+        orig_idle_w, orig_idle_h = self.sheet_idle.get_size()
+        self.idle_columns = 4  # 4 frames per idle cycle in 128x160 sheet
+        self.idle_rows = 5
+        self.idle_frame_width = orig_idle_w // self.idle_columns
+        self.idle_frame_height = orig_idle_h // self.idle_rows
+
+        self.frames_idle = []
+        for i in range(self.idle_columns):
+            rect_i = pygame.Rect(i * self.idle_frame_width, ROW_STRAIGHT * self.idle_frame_height,
+                                 self.idle_frame_width, self.idle_frame_height)
+            self.frames_idle.append(self.sheet_idle.subsurface(rect_i))
+
+        # Flag for running vs arena/dodging state:
+        # True during normal forward track run, False when stopped at boss battle
+        self.is_running_forward = True
+        self.move_dir = 0
+
         self.set_count(count)
 
     @property
@@ -211,6 +252,7 @@ class Crowd:
             dt (float): Delta time in seconds.
             forward_speed (float): Current forward running speed.
         """
+        self.move_dir = direction
         if direction:
             self.target_x = None
             side = max(C.CROWD_SIDE_SPEED, forward_speed * C.CROWD_SIDE_RATIO)
@@ -288,7 +330,10 @@ class Crowd:
             p.dx += p.vx * p.speed * dt
             p.dz += p.vz * p.speed * dt
 
-            p.anim_t += dt * 8 * p.speed
+            # Animation rate: calm/slower in idle stance, standard when running
+            is_standing_idle = not getattr(self, "is_running_forward", True) and getattr(self, "move_dir", 0) == 0 and abs(getattr(self, "crowd_vx", 0.0)) <= 20
+            anim_rate = 4.0 if is_standing_idle else 8.0
+            p.anim_t += dt * anim_rate * p.speed
 
     def draw(self, screen, camera, font):
         """Render all visible runners back-to-front with perspective scaling, bobbing, and count badge.
@@ -306,24 +351,45 @@ class Crowd:
             if scale <= 0:
                 continue
 
-            # Select directional animation based on steering velocity
-            if getattr(self, "crowd_vx", 0) < -50:
-                current_frames = self.frames_left
-            elif getattr(self, "crowd_vx", 0) > 50:
-                current_frames = self.frames_right
+            # ==================================================================
+            # DIRECTIONAL ANIMATION SELECTION (Idle vs Diagonal Run)
+            # - Track running: straight ahead (frames_straight) unless steering
+            # - Boss arena: idle (frames_idle) when still; diagonal run (frames_left / frames_right) when dodging
+            # ==================================================================
+            is_idle = False
+            vx = getattr(self, "crowd_vx", 0.0)
+            move_dir = getattr(self, "move_dir", 0)
+            if not getattr(self, "is_running_forward", True):
+                if move_dir < 0 or vx < -20:
+                    current_frames = self.frames_left    # Dodging left: diagonal running left
+                elif move_dir > 0 or vx > 20:
+                    current_frames = self.frames_right   # Dodging right: diagonal running right
+                else:
+                    current_frames = self.frames_idle    # Standing still: idle animation
+                    is_idle = True
             else:
-                current_frames = self.frames_straight
+                if move_dir < 0 or vx < -50:
+                    current_frames = self.frames_left    # Steering left on track
+                elif move_dir > 0 or vx > 50:
+                    current_frames = self.frames_right   # Steering right on track
+                else:
+                    current_frames = self.frames_straight # Running straight forward
 
-            frame_index = int(p.anim_t) % self.total_frames
-            frame_surface = current_frames[frame_index]
+            if is_idle and self.frames_idle:
+                frame_index = int(p.anim_t) % len(self.frames_idle)
+                frame_surface = self.frames_idle[frame_index]
+                bob = 0.0  # In idle stance, runners stand naturally without running bob bounce
+            else:
+                frame_index = int(p.anim_t) % self.total_frames
+                frame_surface = current_frames[frame_index]
+                # Running vertical bobbing bounce
+                bob = math.sin(p.anim_t) * 1.5 * scale
 
             # Perspective scale
             new_w = max(1, int(self.frame_width * scale))
             new_h = max(1, int(self.frame_height * scale))
             scaled_sprite = pygame.transform.scale(frame_surface, (new_w, new_h))
 
-            # Running vertical bobbing bounce
-            bob = math.sin(p.anim_t) * 1.5 * scale
             char_x = sx - new_w // 2
             char_y = sy - new_h + bob
             screen.blit(scaled_sprite, (char_x, char_y))

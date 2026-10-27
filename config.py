@@ -71,6 +71,15 @@ REFORMATION_DELAY = 0.5      # Delay in seconds after taking damage before crowd
 # ==============================================================================
 POISON_DEATH_TIME = 2.0      # Standing inside a plant boss poison pool for this many seconds causes death
 
+# ==============================================================================
+# Boss Dodging Road & Arena Settings (Adjustable parameters)
+# ==============================================================================
+MAX_CROWD_RADIUS = int(PERSON_SPACING * (MAX_DRAWN_PEOPLE ** 0.5)) + 1  # Bounding radius of max crowd cluster (~78)
+BOSS_DODGE_ROAD_HALF_W = 340     # Half-width of dodging road on boss maps (wider than normal road ROAD_HALF_W = 200)
+BOSS_DODGE_ROAD_LENGTH = (MAX_CROWD_RADIUS * 2) + 24  # Length matching max crowd extent so crowd stands without floating (~180)
+BOSS_SPAWN_DURATION = 2.0        # Duration in seconds for boss spawning intro animation before combat begins
+BOSS_Z_OFFSET = 280              # Forward distance offset where boss stands in front of the dodging road
+
 # Theme fallback colors
 GROUND_A = (88, 160, 84)
 GROUND_B = (80, 150, 78)
