@@ -7,9 +7,7 @@ import config as C
 
 # Asset filepaths for boss spritesheets
 BOSS_ASSET_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "scorpion_sheet.png"
-SCORPION_SPAWN_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "scorpion_spawn_sheet.png"
 PLANT_ASSET_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_sheet.png"
-PLANT_SPAWN_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_spawn_sheet.png"
 _possible_pool_paths = [
     Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool.png",
     Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool_sheet.png",
@@ -17,7 +15,6 @@ _possible_pool_paths = [
 PLANT_POISON_POOL_PATH = next((p for p in _possible_pool_paths if p.exists()), _possible_pool_paths[0])
 
 # Boss Finite State Machine States
-STATE_SPAWN = "spawn"             # Spawning intro animation
 STATE_IDLE = "idle"               # Waiting between attacks
 STATE_TELEGRAPH = "telegraph"     # Projecting red warning danger zone on the ground
 STATE_ATTACK = "attack"           # Executing attack animation and calculating damage
@@ -103,20 +100,18 @@ class HitSpark:
 class ScorpionBoss:
     """Stage 2 Boss: Giant Desert Scorpion featuring directional attacks and telegraph zones."""
 
-    def __init__(self, z, max_hp=1000, start_spawn=False):
+    def __init__(self, z, max_hp=1000):
         """Initialize scorpion boss parameters.
 
         Args:
             z (float): World Z distance where the boss is stationed on the arena.
             max_hp (int): Maximum health points.
-            start_spawn (bool): Whether to begin in spawning state.
         """
         self.x = 0.0
         self.z = z
         self.max_hp = max_hp
         self.hp = max_hp
-        self.spawn_duration = getattr(C, "BOSS_SPAWN_DURATION", 2.0)
-        self.state = STATE_SPAWN if start_spawn else STATE_IDLE
+        self.state = STATE_IDLE
         self.attack_type = None
 
         # Sprite dimensions (6 rows x 8 cols of 80x80 px frames)
@@ -147,17 +142,6 @@ class ScorpionBoss:
         self.danger_rect = None  # (min_x, max_x)
         self.attack_struck = False
 
-    @property
-    def is_spawning(self):
-        """Whether the boss is currently playing its spawning intro animation."""
-        return self.state == STATE_SPAWN
-
-    def start_spawn(self):
-        """Trigger boss spawning sequence."""
-        self.state = STATE_SPAWN
-        self.state_timer = 0.0
-        self.anim_timer = 0.0
-
     def load_spritesheet(self):
         try:
             sheet = pygame.image.load(str(BOSS_ASSET_PATH)).convert_alpha()
@@ -186,21 +170,6 @@ class ScorpionBoss:
         self.anim_attack_right = get_row(3, 8)
         self.anim_hit = get_row(4, 4)
         self.anim_defeat = get_row(5, 8)
-
-        # Spawning animation frames (44 frames sliced from 160x160 sheet, scaled to 80x80)
-        try:
-            raw_spawn = pygame.image.load(str(SCORPION_SPAWN_PATH))
-            sheet_spawn = raw_spawn.convert_alpha() if pygame.display.get_surface() else raw_spawn
-            self.anim_spawn = []
-            for idx in range(44):
-                col = idx % 8
-                row = idx // 8
-                rect = pygame.Rect(col * 160, row * 160, 160, 160)
-                frame = sheet_spawn.subsurface(rect)
-                scaled = pygame.transform.smoothscale(frame, (self.frame_width, self.frame_height))
-                self.anim_spawn.append(scaled)
-        except Exception:
-            self.anim_spawn = self.anim_idle[:]
 
     def trigger_hit(self, damage=5):
         if self.state == STATE_DEFEAT:
@@ -237,16 +206,6 @@ class ScorpionBoss:
             self.attack_type = ATTACK_FRONT    # Front attack animation
 
     def update(self, dt, crowd):
-        # 0. Boss Spawning Sequence
-        if self.state == STATE_SPAWN:
-            self.state_timer += dt
-            self.anim_timer += dt
-            if self.state_timer >= self.spawn_duration:
-                self.state = STATE_IDLE
-                self.state_timer = 0.0
-                self.anim_timer = 0.0
-            return
-
         # 1. จัดการกระสุนและประกายไฟ
         for b in self.bullets:
             b.update(dt)
@@ -264,7 +223,7 @@ class ScorpionBoss:
             self.hit_flash_timer -= dt
 
         # 2. ระบบคนในกลุ่มยิงใส่บอส (หน่วงเวลา 1.5 วิ และทำดาเมจ 5 ต่อนัด)
-        if self.state not in (STATE_SPAWN, STATE_DEFEAT) and crowd.count > 0:
+        if self.state != STATE_DEFEAT and crowd.count > 0:
             self.shoot_timer += dt
             if self.shoot_timer >= self.shoot_interval:
                 self.shoot_timer = 0.0
@@ -340,13 +299,7 @@ class ScorpionBoss:
             target.count = max(0, target.count - len(hit_enemies))
 
     def get_current_frame(self):
-        if self.state == STATE_SPAWN:
-            frames = getattr(self, "anim_spawn", self.anim_idle)
-            fps = len(frames) / max(0.1, self.spawn_duration)
-            idx = min(len(frames) - 1, int(self.anim_timer * fps))
-            return frames[idx]
-
-        elif self.state == STATE_IDLE:
+        if self.state == STATE_IDLE:
             frames = self.anim_idle
             idx = int(self.anim_timer * 6) % len(frames)
             return frames[idx]
@@ -385,9 +338,8 @@ class ScorpionBoss:
             return
 
         min_x, max_x = self.danger_rect
-        half_len = getattr(C, "BOSS_DODGE_ROAD_LENGTH", 180) / 2.0
-        near_z = finish_z - half_len
-        far_z = finish_z + half_len
+        near_z = finish_z - 80
+        far_z = finish_z + 120
 
         # คำนวณ 4 มุมของพื้นที่สี่เหลี่ยมคางหมูบนพื้นตามกล้อง 3D
         p1 = camera.project(min_x, near_z)[:2]
@@ -436,10 +388,9 @@ class ScorpionBoss:
         draw_w = max(4, int(boss_world_w * scale))
         draw_h = max(4, int(boss_world_h * scale))
 
-        # เงาใต้ตัวบอส (ค่อยๆ ขยายตามความคืบหน้าตอน spawn)
-        shadow_prog = min(1.0, max(0.2, self.state_timer / max(0.1, self.spawn_duration))) if self.state == STATE_SPAWN else 1.0
-        shadow_w = max(4, int(draw_w * 1.8 * shadow_prog))
-        shadow_h = max(2, int(draw_h * 0.72 * shadow_prog))
+        # เงาใต้ตัวบอส
+        shadow_w = int(draw_w * 1.8)
+        shadow_h = int(draw_h * 0.72)
         shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (0, 0, 0, 120), (0, 0, shadow_w, shadow_h))
         screen.blit(shadow_surf, (sx - shadow_w // 2, sy - shadow_h // 2))
@@ -791,13 +742,12 @@ class PoisonPool:
 class PlantBoss:
     """ระบบบอสต้นไม้กินคน / ดอกไม้พิษ (Carnivorous / Venom Plant Boss)"""
 
-    def __init__(self, z, max_hp=2000, start_spawn=False):
+    def __init__(self, z, max_hp=2000):
         self.x = 0.0
         self.z = z
         self.max_hp = max_hp
         self.hp = max_hp
-        self.spawn_duration = getattr(C, "BOSS_SPAWN_DURATION", 2.0)
-        self.state = STATE_SPAWN if start_spawn else STATE_IDLE
+        self.state = STATE_IDLE
         self.attack_mode = "chop"    # "chop" (งับกัด) หรือ "spit" (พ่นบ่อพิษ)
         self.attack_type = ATTACK_FRONT
 
@@ -835,17 +785,6 @@ class PlantBoss:
         self.spits = []
         self.death_particles = []
 
-    @property
-    def is_spawning(self):
-        """Whether the boss is currently playing its spawning intro animation."""
-        return self.state == STATE_SPAWN
-
-    def start_spawn(self):
-        """Trigger boss spawning sequence."""
-        self.state = STATE_SPAWN
-        self.state_timer = 0.0
-        self.anim_timer = 0.0
-
     def load_spritesheet(self):
         try:
             raw = pygame.image.load(str(PLANT_ASSET_PATH))
@@ -871,27 +810,9 @@ class PlantBoss:
         self.anim_chop_right = get_row(3, 10)
         self.anim_spit_front = get_row(4, 12)
         self.anim_spit_left = get_row(5, 12)
-        self.anim_chop_right = get_row(3, 10)
-        self.anim_spit_front = get_row(4, 12)
-        self.anim_spit_left = get_row(5, 12)
         self.anim_spit_right = get_row(6, 12)
         self.anim_hit = get_row(7, 4)
         self.anim_defeat = get_row(8, 12)
-
-        # Spawning animation frames (60 frames sliced from 208x208 sheet, scaled to 160x160)
-        try:
-            raw_spawn = pygame.image.load(str(PLANT_SPAWN_PATH))
-            sheet_spawn = raw_spawn.convert_alpha() if pygame.display.get_surface() else raw_spawn
-            self.anim_spawn = []
-            for idx in range(60):
-                col = idx % 12
-                row = idx // 12
-                rect = pygame.Rect(col * 208, row * 208, 208, 208)
-                frame = sheet_spawn.subsurface(rect)
-                scaled = pygame.transform.smoothscale(frame, (self.frame_width, self.frame_height))
-                self.anim_spawn.append(scaled)
-        except Exception:
-            self.anim_spawn = self.anim_idle[:]
 
         # เตรียม frames บ่อพิษไว้ล่วงหน้า
         PoisonPool.load_frames()
@@ -978,16 +899,6 @@ class PlantBoss:
             self.spits.append(PoisonSpit(self.x, self.z - 20, stx, stz, start_y=75.0, flight_time=0.52))
 
     def update(self, dt, crowd):
-        # 0. Boss Spawning Sequence
-        if self.state == STATE_SPAWN:
-            self.state_timer += dt
-            self.anim_timer += dt
-            if self.state_timer >= self.spawn_duration:
-                self.state = STATE_IDLE
-                self.state_timer = 0.0
-                self.anim_timer = 0.0
-            return
-
         # 1. จัดการกระสุนและประกายไฟของผู้เล่น
         for b in self.bullets:
             b.update(dt)
@@ -1006,7 +917,7 @@ class PlantBoss:
 
         # 2. ผู้เล่นระดมยิงใส่บอส
         crowd_count = getattr(crowd, "count", len(getattr(crowd, "people", [])))
-        if self.state not in (STATE_SPAWN, STATE_DEFEAT) and crowd_count > 0:
+        if self.state != STATE_DEFEAT and crowd_count > 0:
             self.shoot_timer += dt
             if self.shoot_timer >= self.shoot_interval:
                 self.shoot_timer = 0.0
@@ -1145,13 +1056,7 @@ class PlantBoss:
 
     def get_current_frame(self):
         """ดึงเฟรมแอนิเมชันของบอสตามสถานะปัจจุบัน"""
-        if self.state == STATE_SPAWN:
-            frames = getattr(self, "anim_spawn", self.anim_idle)
-            fps = len(frames) / max(0.1, self.spawn_duration)
-            idx = min(len(frames) - 1, int(self.anim_timer * fps))
-            return frames[idx]
-
-        elif self.state == STATE_IDLE:
+        if self.state == STATE_IDLE:
             if self.hit_flash_timer > 0 and len(self.anim_hit) > 0:
                 idx = min(len(self.anim_hit) - 1, int((0.1 - self.hit_flash_timer) * 30))
                 return self.anim_hit[idx]
@@ -1194,9 +1099,8 @@ class PlantBoss:
 
         if self.attack_mode == "chop" and self.danger_rect:
             min_x, max_x = self.danger_rect
-            half_len = getattr(C, "BOSS_DODGE_ROAD_LENGTH", 180) / 2.0
-            near_z = finish_z - half_len
-            far_z = finish_z + half_len
+            near_z = finish_z - 80
+            far_z = finish_z + 120
 
             p1 = camera.project(min_x, near_z)[:2]
             p2 = camera.project(max_x, near_z)[:2]
@@ -1285,10 +1189,9 @@ class PlantBoss:
         draw_w = max(4, int(boss_world_w * scale))
         draw_h = max(4, int(boss_world_h * scale))
 
-        # เงาของบอสบนพื้น (ค่อยๆ ขยายตามความคืบหน้าตอน spawn)
-        shadow_prog = min(1.0, max(0.2, self.state_timer / max(0.1, self.spawn_duration))) if self.state == STATE_SPAWN else 1.0
-        shadow_w = max(4, int(draw_w * 1.5 * shadow_prog))
-        shadow_h = max(2, int(draw_h * 0.5 * shadow_prog))
+        # เงาของบอสบนพื้น
+        shadow_w = int(draw_w * 1.5)
+        shadow_h = int(draw_h * 0.5)
         shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (0, 0, 0, 120), (0, 0, shadow_w, shadow_h))
         screen.blit(shadow_surf, (sx - shadow_w // 2, sy - shadow_h // 2))
@@ -1409,14 +1312,13 @@ def get_boss_class(name):
     return BOSS_MAP.get(str(name).lower())
 
 
-def spawn_boss(boss_identifier, finish_z, z_offset=None, start_spawn=False):
+def spawn_boss(boss_identifier, finish_z, z_offset=260):
     """Factory function to instantiate the correct boss for a level with default HP and positioning.
 
     Args:
         boss_identifier (str | type | None): Boss class or name string ('scorpion', 'plant').
         finish_z (float): Track end distance where arena begins.
-        z_offset (float, optional): Forward distance offset on arena platform (default from config).
-        start_spawn (bool): Whether to trigger spawning intro animation immediately.
+        z_offset (float): Forward distance offset on arena platform (default +260).
 
     Returns:
         ScorpionBoss | PlantBoss | None: Configured boss instance.
@@ -1429,15 +1331,9 @@ def spawn_boss(boss_identifier, finish_z, z_offset=None, start_spawn=False):
     if not boss_class:
         return None
 
-    if z_offset is None:
-        z_offset = getattr(C, "BOSS_Z_OFFSET", 280)
-
     z = finish_z + z_offset
     hp = 1000 if boss_class == ScorpionBoss else 1500
-    boss = boss_class(z=z, max_hp=hp, start_spawn=start_spawn)
-    if start_spawn:
-        boss.start_spawn()
-    return boss
+    return boss_class(z=z, max_hp=hp)
 
 
 

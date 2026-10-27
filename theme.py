@@ -214,63 +214,63 @@ class Theme:
                     if y_bot > y_top:
                         screen.fill(self.ground_b, (0, y_top, C.SCREEN_W, y_bot - y_top + 1))
 
-        # 3. Base road polygon fill and textured surface
-        # Road continues up to finish_z on boss maps, or finish_z + 400 on normal maps
-        has_boss = getattr(level, "boss", None) is not None
-        road_end_z = level.finish_z if has_boss else (level.finish_z + 400)
-        road_far = min(far, road_end_z)
-        if road_far > near:
-            # Curb border width in world units (adjust to make side borders thicker/thinner)
-            curb_world_w = 8.0
-            curb_tile = 60.0  # Segment length along Z for alternating curb color blocks
+        # 3. Base road polygon fill and textured surface (completely hidden during boss fight)
+        if not is_boss_fight:
+            has_boss = getattr(level, "boss", None) is not None
+            road_end_z = (level.finish_z - 100) if has_boss else (level.finish_z + 400)
+            road_far = min(far, road_end_z)
+            if road_far > near:
+                # Curb border width in world units (adjust to make side borders thicker/thinner)
+                curb_world_w = 8.0
+                curb_tile = 60.0  # Segment length along Z for alternating curb color blocks
 
-            # Base polygon covers road + curbs to prevent seam gaps with grass
-            p_near_l = cam.project(-C.ROAD_HALF_W - curb_world_w, near)[:2]
-            p_near_r = cam.project(C.ROAD_HALF_W + curb_world_w, near)[:2]
-            p_far_r = cam.project(C.ROAD_HALF_W + curb_world_w, road_far)[:2]
-            p_far_l = cam.project(-C.ROAD_HALF_W - curb_world_w, road_far)[:2]
-            pygame.draw.polygon(screen, self.road_base, [p_near_l, p_near_r, p_far_r, p_far_l])
+                # Base polygon covers road + curbs to prevent seam gaps with grass
+                p_near_l = cam.project(-C.ROAD_HALF_W - curb_world_w, near)[:2]
+                p_near_r = cam.project(C.ROAD_HALF_W + curb_world_w, near)[:2]
+                p_far_r = cam.project(C.ROAD_HALF_W + curb_world_w, road_far)[:2]
+                p_far_l = cam.project(-C.ROAD_HALF_W - curb_world_w, road_far)[:2]
+                pygame.draw.polygon(screen, self.road_base, [p_near_l, p_near_r, p_far_r, p_far_l])
 
-            # Precalculate alternating curb colors (primary theme edge color and darker accent)
-            curb_color_a = self.road_edge
-            curb_color_b = tuple(max(0, c - 45) for c in self.road_edge)
+                # Precalculate alternating curb colors (primary theme edge color and darker accent)
+                curb_color_a = self.road_edge
+                curb_color_b = tuple(max(0, c - 45) for c in self.road_edge)
 
-            # Textured brick pattern on the road (seamless tiling) with perspective side borders
-            step, tile = 4, 200
-            n = len(road_rows)
-            z_curr = near
-            while z_curr < road_far:
-                z1 = min(z_curr + step, road_far)
-                xl, y0, s0 = cam.project(-C.ROAD_HALF_W, z_curr)
-                xr, _, _ = cam.project(C.ROAD_HALF_W, z_curr)
-                _, y1, _ = cam.project(0, z1)
-                w, h = int(xr - xl), int(abs(y0 - y1)) + 1
-                y_pos = int(min(y0, y1))
+                # Textured brick pattern on the road (seamless tiling) with perspective side borders
+                step, tile = 4, 200
+                n = len(road_rows)
+                z_curr = near
+                while z_curr < road_far:
+                    z1 = min(z_curr + step, road_far)
+                    xl, y0, s0 = cam.project(-C.ROAD_HALF_W, z_curr)
+                    xr, _, _ = cam.project(C.ROAD_HALF_W, z_curr)
+                    _, y1, _ = cam.project(0, z1)
+                    w, h = int(xr - xl), int(abs(y0 - y1)) + 1
+                    y_pos = int(min(y0, y1))
 
-                if w > 0 and h > 0:
-                    # Render central brick texture slice
-                    v = (z_curr % tile) / tile
-                    row = road_rows[min(n - 1, int(v * n))]
-                    screen.blit(pygame.transform.scale(row, (w, h)), (int(xl), y_pos))
+                    if w > 0 and h > 0:
+                        # Render central brick texture slice
+                        v = (z_curr % tile) / tile
+                        row = road_rows[min(n - 1, int(v * n))]
+                        screen.blit(pygame.transform.scale(row, (w, h)), (int(xl), y_pos))
 
-                    # Render left and right side borders (curbs) with perspective scaling
-                    curb_w = max(2, int(curb_world_w * s0))
-                    curb_color = curb_color_a if (int(z_curr) // curb_tile) % 2 == 0 else curb_color_b
-                    # Left border curb
-                    pygame.draw.rect(screen, curb_color, (int(xl) - curb_w, y_pos, curb_w, h))
-                    # Right border curb
-                    pygame.draw.rect(screen, curb_color, (int(xr), y_pos, curb_w, h))
+                        # Render left and right side borders (curbs) with perspective scaling
+                        curb_w = max(2, int(curb_world_w * s0))
+                        curb_color = curb_color_a if (int(z_curr) // curb_tile) % 2 == 0 else curb_color_b
+                        # Left border curb
+                        pygame.draw.rect(screen, curb_color, (int(xl) - curb_w, y_pos, curb_w, h))
+                        # Right border curb
+                        pygame.draw.rect(screen, curb_color, (int(xr), y_pos, curb_w, h))
 
-                z_curr = z1
+                    z_curr = z1
 
-            # Dashed center dividing line along the road (x = 0)
-            dash_step = 200
-            dash_z = (int(near) // dash_step + 1) * dash_step
-            while dash_z < road_far:
-                x1, y1, s1 = cam.project(0, dash_z)
-                x2, y2, _ = cam.project(0, min(road_far, dash_z + dash_step / 2))
-                pygame.draw.line(screen, self.road_edge, (x1, y1), (x2, y2), max(2, int(4 * s1)))
-                dash_z += dash_step
+                # Dashed center dividing line along the road (x = 0)
+                dash_step = 200
+                dash_z = (int(near) // dash_step + 1) * dash_step
+                while dash_z < road_far:
+                    x1, y1, s1 = cam.project(0, dash_z)
+                    x2, y2, _ = cam.project(0, min(road_far, dash_z + dash_step / 2))
+                    pygame.draw.line(screen, self.road_edge, (x1, y1), (x2, y2), max(2, int(4 * s1)))
+                    dash_z += dash_step
 
         # 4. Roadside tufts/bushes with perspective scaling
         i_start = bisect.bisect_left(tuft_zs, near)
@@ -283,60 +283,40 @@ class Theme:
                 h = max(1, int(spr.get_height() * scale * 2.2))
                 screen.blit(pygame.transform.scale(spr, (w, h)), (int(sx - w // 2), int(sy - h)))
 
-    def draw_boss_dodging_road(self, screen, cam, finish_z, length=None, half_w=None):
-        """Render wide boss-dodging-road past the finish line where the crowd stands and dodges.
+    def draw_arena(self, screen, cam, finish_z):
+        """Render wide boss battle platform arena floor, grid lines, and perimeter borders.
 
         Args:
             screen (pygame.Surface): Display surface.
             cam (Camera): Active camera.
-            finish_z (float): Finish line Z position where dodging road begins.
-            length (float, optional): Road length along Z (matches max crowd cluster diameter).
-            half_w (float, optional): Road half-width along X (wider than normal road).
+            finish_z (float): Track end distance where arena begins.
         """
-        # ======================================================================
-        # BOSS DODGING ROAD TUNING
-        # Dimensions match max crowd radius so crowd stands without floating
-        # ======================================================================
-        dodge_w = half_w if half_w is not None else getattr(C, "BOSS_DODGE_ROAD_HALF_W", 340)
-        dodge_len = length if length is not None else getattr(C, "BOSS_DODGE_ROAD_LENGTH", 180)
-        near_z = finish_z
-        far_z = finish_z + dodge_len
+        arena_w = 340
+        arena_near = finish_z - 100
+        arena_far = finish_z + 380
 
-        curb_color = self.road_edge
+        p1 = cam.project(-arena_w, arena_near)[:2]
+        p2 = cam.project(arena_w, arena_near)[:2]
+        p3 = cam.project(arena_w, arena_far)[:2]
+        p4 = cam.project(-arena_w, arena_far)[:2]
 
-        # 1. Main boss dodging road surface polygon
-        p1 = cam.project(-dodge_w, near_z)[:2]
-        p2 = cam.project(dodge_w, near_z)[:2]
-        p3 = cam.project(dodge_w, far_z)[:2]
-        p4 = cam.project(-dodge_w, far_z)[:2]
+        # Arena floor polygon
+        pygame.draw.polygon(screen, self.arena_floor, [p1, p2, p3, p4])
 
-        pygame.draw.polygon(screen, self.road_base, [p1, p2, p3, p4])
+        # Floor grid lines
+        for grid_x in (-240, -120, 0, 120, 240):
+            g_start = cam.project(grid_x, arena_near)[:2]
+            g_end = cam.project(grid_x, arena_far)[:2]
+            pygame.draw.line(screen, self.arena_grid, g_start, g_end, 1)
+        for grid_z in (finish_z + 60, finish_z + 180, finish_z + 300):
+            g_left = cam.project(-arena_w, grid_z)[:2]
+            g_right = cam.project(arena_w, grid_z)[:2]
+            pygame.draw.line(screen, self.arena_grid, g_left, g_right, 1)
 
-        # Subtle road texture / guidance lines along Z
-        grid_color = tuple(max(0, c - 25) for c in self.road_base)
-        for line_x in (-dodge_w * 0.6, -dodge_w * 0.3, 0.0, dodge_w * 0.3, dodge_w * 0.6):
-            g_start = cam.project(line_x, near_z)[:2]
-            g_end = cam.project(line_x, far_z)[:2]
-            pygame.draw.line(screen, grid_color, g_start, g_end, 1)
-
-        # 2. Curb borders with theme edge color
-        pygame.draw.line(screen, curb_color, p1, p4, 5)  # Left curb
-        pygame.draw.line(screen, curb_color, p2, p3, 5)  # Right curb
-        pygame.draw.line(screen, curb_color, p4, p3, 5)  # Far end road border
-
-        # 3. Shoulder entrance curbs connecting normal road width (200) to dodging road width (340)
-        p_norm_l = cam.project(-C.ROAD_HALF_W, near_z)[:2]
-        p_norm_r = cam.project(C.ROAD_HALF_W, near_z)[:2]
-        pygame.draw.line(screen, curb_color, p1, p_norm_l, 4)
-        pygame.draw.line(screen, curb_color, p_norm_r, p2, 4)
-
-        # ----------------------------------------------------------------------
-        # NOTE: Platform for the boss is skipped for now (to be added later by user)
-        # ----------------------------------------------------------------------
-
-    def draw_arena(self, screen, cam, finish_z):
-        """Render boss dodging road (maintained for backwards compatibility)."""
-        self.draw_boss_dodging_road(screen, cam, finish_z)
+        # Glowing perimeter borders
+        pygame.draw.line(screen, self.arena_border, p1, p4, 4)
+        pygame.draw.line(screen, self.arena_border, p2, p3, 4)
+        pygame.draw.line(screen, self.arena_border, p3, p4, 4)
 
 
 # Predefined environment themes
