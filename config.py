@@ -7,8 +7,8 @@ colors, crowd boids behavior, and boss parameters. Modify these values to adjust
 # ==============================================================================
 # Screen & Display Settings
 # ==============================================================================
-SCREEN_W = 580               # Window width in pixels
-SCREEN_H = 750               # Window height in pixels
+SCREEN_W = 650               # Window width in pixels
+SCREEN_H = 780             # Window height in pixels
 FPS = 60                     # Target frame rate (frames per second)
 TITLE = "Crowd Runner"       # Window title bar caption
 
@@ -54,22 +54,22 @@ ENEMY_COLOR = (220, 50, 50)      # Enemy crowd UI and indicator color (Red)
 GATE_GOOD = (60, 140, 255)       # Positive multiplier/addition gate color (Blue)
 GATE_BAD = (230, 70, 70)         # Negative subtraction/division gate color (Red)
 OBSTACLE_COLOR = (200, 60, 30)   # Road obstacle color
-FINISH_COLOR = (20, 20, 20)      # Finish line stripe color
+FINISH_COLOR = (255, 255, 255)      # Finish line stripe color
 WHITE = (255, 255, 255)          # Standard white
 BLACK = (0, 0, 0)                # Standard black
 
 # ==============================================================================
 # Crowd Flocking / Boids Physics Simulation
 # ==============================================================================
-CROWD_COHESION = 10.0         # Spring force pulling separated runners back toward cluster center
+CROWD_COHESION = 15.0         # Spring force pulling separated runners back toward cluster center
 CROWD_SEPARATION = 100.0     # Repulsion force preventing runners from overlapping each other
-CROWD_WANDER = 0.75           # Natural slight wandering movement jitter
+CROWD_WANDER = 0.5           # Natural slight wandering movement jitter
 REFORMATION_DELAY = 0.5      # Delay in seconds after taking damage before crowd pulls back together
 
 # ==============================================================================
 # Boss Mechanics (boss.py)
 # ==============================================================================
-POISON_DEATH_TIME = 2.0      # Standing inside a plant boss poison pool for this many seconds causes death
+POISON_DEATH_TIME = 1.5      # Standing inside a plant boss poison pool for this many seconds causes death
 
 # Theme fallback colors
 GROUND_A = (88, 160, 84)

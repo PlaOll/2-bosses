@@ -22,6 +22,9 @@ class Gate:
             op (str): Mathematical operator ('+', '-', 'x', '/').
             value (int): Operand value.
         """
+        if isinstance(value, dict) or isinstance(value, (list, tuple)):
+            from level import resolve_val
+            value = resolve_val(value)
         if op not in SYMBOLS:
             raise ValueError(f"unknown gate op: {op!r}")
         if op == "/" and value == 0:
@@ -41,12 +44,12 @@ class Gate:
             int: Resulting crowd count (floored integer, non-negative).
         """
         if self.op == "+":
-            return count + self.value
+            return int(count + self.value)
         if self.op == "-":
-            return max(0, count - self.value)   # Count cannot be negative
+            return max(0, int(count - self.value))   # Count cannot be negative
         if self.op == "x":
-            return count * self.value
-        return count // self.value              # Floor division keeps crowd integer
+            return int(count * self.value)
+        return int(count // self.value)              # Floor division keeps crowd integer
 
     def is_good(self):
         """Check whether passing this gate increases or maintains the crowd.
@@ -62,7 +65,11 @@ class Gate:
         Returns:
             str: Human-readable operator and value string.
         """
-        return f"{SYMBOLS[self.op]}{self.value}"
+        if isinstance(self.value, float) and self.value.is_integer():
+            val_str = str(int(self.value))
+        else:
+            val_str = str(self.value)
+        return f"{SYMBOLS[self.op]}{val_str}"
 
     def contains(self, x):
         """Check if an X position falls within the lane of this gate.
@@ -90,7 +97,16 @@ class GatePair:
             left (tuple): Tuple of (op, value) for the left lane (from -ROAD_HALF_W to 0).
             right (tuple): Tuple of (op, value) for the right lane (from 0 to +ROAD_HALF_W).
         """
-        self.z = z
+        if isinstance(z, dict):
+            from level import resolve_val
+            z = resolve_val(z)
+        self.z = float(z)
+        if isinstance(left, (list, tuple)) and len(left) > 1 and isinstance(left[1], dict):
+            from level import resolve_gate_spec
+            left = resolve_gate_spec(left)
+        if isinstance(right, (list, tuple)) and len(right) > 1 and isinstance(right[1], dict):
+            from level import resolve_gate_spec
+            right = resolve_gate_spec(right)
         self.left = Gate(-C.ROAD_HALF_W, 0, *left)
         self.right = Gate(0, C.ROAD_HALF_W, *right)
         self.used = False  # Set to True once the crowd has crossed this gate pair
@@ -142,3 +158,18 @@ class GatePair:
             size = max(1, int(text.get_width() * min(scale, 1.5))), max(1, int(text.get_height() * min(scale, 1.5)))
             text = pygame.transform.smoothscale(text, size)
             screen.blit(text, text.get_rect(center=rect.center))
+
+    def draw_hitbox(self, screen, camera):
+        """Render debug collision boundary wireframes for both gate lanes."""
+        if self.used or not camera.visible(self.z):
+            return
+        for gate in (self.left, self.right):
+            x1, y, scale = camera.project(gate.x_min, self.z)
+            x2, _, _ = camera.project(gate.x_max, self.z)
+            h = C.GATE_HEIGHT * scale
+            rect = pygame.Rect(x1 + 2, y - h, x2 - x1 - 4, h)
+            pygame.draw.rect(screen, (0, 255, 255), rect, width=2)
+        cx, cy, cscale = camera.project(0, self.z)
+        if cscale > 0:
+            pygame.draw.line(screen, (255, 255, 0), (cx, cy), (cx, cy - C.GATE_HEIGHT * cscale), 2)
+

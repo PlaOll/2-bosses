@@ -8,7 +8,11 @@ import config as C
 # Asset filepaths for boss spritesheets
 BOSS_ASSET_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "scorpion_sheet.png"
 PLANT_ASSET_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_sheet.png"
-PLANT_POISON_POOL_PATH = Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool_sheet.png"
+_possible_pool_paths = [
+    Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool.png",
+    Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool_sheet.png",
+]
+PLANT_POISON_POOL_PATH = next((p for p in _possible_pool_paths if p.exists()), _possible_pool_paths[0])
 
 # Boss Finite State Machine States
 STATE_IDLE = "idle"               # Waiting between attacks
@@ -436,6 +440,38 @@ class ScorpionBoss:
         hp_rect = hp_text.get_rect(center=(C.SCREEN_W // 2, bar_y + bar_h // 2))
         screen.blit(hp_text, hp_rect)
 
+    def draw_hitbox(self, screen, camera):
+        """Render debug hitboxes for scorpion boss, bullets, and attack hazard zones."""
+        # Bullets
+        for b in self.bullets:
+            if b.alive and camera.visible(b.z):
+                bsx, bsy, bscale = camera.project(b.x, b.z)
+                if bscale > 0:
+                    pygame.draw.circle(screen, (255, 255, 100), (int(bsx), int(bsy)), max(2, int(4 * bscale)), 1)
+
+        # Boss body hurtbox
+        if camera.visible(self.z):
+            sx, sy, scale = camera.project(self.x, self.z)
+            if scale > 0:
+                rw = max(10, int(70 * scale))
+                rh = max(6, int(35 * scale))
+                rect = pygame.Rect(sx - rw, sy - rh, rw * 2, rh * 2)
+                pygame.draw.ellipse(screen, (255, 140, 0), rect, width=2)
+                pygame.draw.line(screen, (255, 140, 0), (sx - 8, sy), (sx + 8, sy), 1)
+                pygame.draw.line(screen, (255, 140, 0), (sx, sy - 8), (sx, sy + 8), 1)
+
+        # Active danger area
+        if self.danger_rect and camera.visible(self.z):
+            min_x, max_x = self.danger_rect
+            p1 = camera.project(min_x, self.z)[:2]
+            p2 = camera.project(max_x, self.z)[:2]
+            p3 = camera.project(max_x, self.z - 350)[:2]
+            p4 = camera.project(min_x, self.z - 350)[:2]
+            pygame.draw.polygon(screen, (255, 0, 0), [p1, p2, p3, p4], width=2)
+
+
+
+
 
 class PoisonBubbleParticle:
     """ฟองอากาศพิษลอยขึ้นจากบ่อพิษหรือตัวละครที่ติดพิษ"""
@@ -562,29 +598,53 @@ class PoisonPool:
     def load_frames(cls):
         if cls._frames_loaded:
             return
+        possible_paths = [
+            PLANT_POISON_POOL_PATH,
+            Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool.png",
+            Path(__file__).resolve().parent / "assets" / "Bosses sheet" / "plant_poison_pool_sheet.png",
+        ]
+        target_path = next((p for p in possible_paths if p.exists()), possible_paths[0])
         try:
-            raw = pygame.image.load(str(PLANT_POISON_POOL_PATH))
+            raw = pygame.image.load(str(target_path))
             sheet = raw.convert_alpha() if pygame.display.get_surface() else raw
         except Exception:
-            sheet = pygame.Surface((768, 144), pygame.SRCALPHA)
-            pygame.draw.ellipse(sheet, (140, 40, 200, 200), (0, 0, 768, 144))
+            sheet = pygame.Surface((768, 256), pygame.SRCALPHA)
+            pygame.draw.ellipse(sheet, (140, 40, 200, 200), (0, 0, 768, 256))
+
+        sheet_w, sheet_h = sheet.get_size()
+        cols = 8
+        rows = 2
+        cell_w = max(1, sheet_w // cols)
+        cell_h = max(1, sheet_h // rows)
+
+        # Content region inside 96x128 cell (72x118 centered horizontally, bottom at 118)
+        scale_x = cell_w / 96.0
+        scale_y = cell_h / 128.0
+        crop_x = int(12 * scale_x)
+        crop_y = int(2 * scale_y)
+        crop_w = int(72 * scale_x)
+        crop_h = int(118 * scale_y)
 
         cleaned = []
         for idx in range(14):
-            r, c = divmod(idx, 8)
-            cell = sheet.subsurface((c * 96, r * 72, 96, 72)).copy()
+            r, c = divmod(idx, cols)
+            cell = sheet.subsurface((c * cell_w, r * cell_h, cell_w, cell_h)).copy()
             m = pygame.mask.from_surface(cell)
             rects = m.get_bounding_rects()
             if rects:
                 largest = max(rects, key=lambda rect: rect.w * rect.h)
-                clean_cell = pygame.Surface((96, 72), pygame.SRCALPHA)
+                clean_cell = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
                 clean_cell.blit(cell.subsurface(largest), largest.topleft)
-                cleaned.append(clean_cell)
+                if crop_x + crop_w <= cell_w and crop_y + crop_h <= cell_h:
+                    frame = clean_cell.subsurface((crop_x, crop_y, crop_w, crop_h)).copy()
+                else:
+                    frame = clean_cell
+                cleaned.append(frame)
             else:
                 cleaned.append(cell)
 
-        cls._spawn_frames = cleaned[0:3]
-        cls._active_frames = cleaned[3:12]
+        cls._spawn_frames = cleaned[0:6]
+        cls._active_frames = cleaned[6:12]
         cls._fade_frames = cleaned[12:14]
         cls._frames_loaded = True
 
@@ -597,7 +657,7 @@ class PoisonPool:
         self.radius_z = radius_z
         self.timer = 0.0
         self.alive = True
-        self.spawn_time = 0.25
+        self.spawn_time = 0.35
         self.fade_time = 0.35
         self.bubble_timer = 0.0
         self.bubbles = []
@@ -640,21 +700,25 @@ class PoisonPool:
             return self._fade_frames[idx]
         else:
             active_elapsed = self.timer - self.spawn_time
-            idx = int(active_elapsed * 9.0) % len(self._active_frames)
+            idx = int(active_elapsed * 8.0) % len(self._active_frames)
             return self._active_frames[idx]
 
     def draw(self, screen, camera):
         if not camera.visible(self.z):
             return
-        sx, sy, scale = camera.project(self.x, self.z)
+
+        x1, _, _ = camera.project(self.x - self.radius_x, self.z)
+        x2, _, _ = camera.project(self.x + self.radius_x, self.z)
+        _, far_y, _ = camera.project(self.x, self.z + self.radius_z)
+        _, near_y, _ = camera.project(self.x, self.z - self.radius_z)
+
+        dw = max(4, int(abs(x2 - x1)))
+        dh = max(4, int(abs(near_y - far_y)))
+        sx = int((x1 + x2) / 2)
+        sy = int((near_y + far_y) / 2)
+        scale = (camera.project(self.x, self.z))[2]
         if scale <= 0:
             return
-
-        # ขนาดบ่อบนโลกปรับให้สอดคล้องกับระยะที่ตัวละครเดินสุ่ม
-        w_world = self.radius_x * 2.0
-        h_world = self.radius_z * 2.0
-        dw = max(4, int(w_world * scale))
-        dh = max(4, int(h_world * scale))
 
         # 1. แสงเรืองรองสีม่วงรอบบ่อ (Aura)
         aura_w = int(dw * 1.15)
@@ -1174,6 +1238,58 @@ class PlantBoss:
         hp_text = font.render(f"{hp_val} / {self.max_hp}", True, C.WHITE)
         hp_rect = hp_text.get_rect(center=(C.SCREEN_W // 2, bar_y + bar_h // 2))
         screen.blit(hp_text, hp_rect)
+
+    def draw_hitbox(self, screen, camera):
+        """Render debug hitboxes for plant boss, poison pools, spits, bullets, and bite zones."""
+        # Bullets
+        for b in self.bullets:
+            if b.alive and camera.visible(b.z):
+                bsx, bsy, bscale = camera.project(b.x, b.z)
+                if bscale > 0:
+                    pygame.draw.circle(screen, (255, 255, 100), (int(bsx), int(bsy)), max(2, int(4 * bscale)), 1)
+
+        # Poison Pools (exact ellipse collision boundaries)
+        for pool in self.poison_pools:
+            if getattr(pool, "is_active", True) and camera.visible(pool.z):
+                pts = []
+                for deg in range(0, 360, 20):
+                    rad = math.radians(deg)
+                    wx = pool.x + math.cos(rad) * pool.radius_x
+                    wz = pool.z + math.sin(rad) * pool.radius_z
+                    pts.append(camera.project(wx, wz)[:2])
+                if len(pts) >= 3:
+                    pygame.draw.polygon(screen, (180, 50, 255), pts, width=2)
+                psx, psy, _ = camera.project(pool.x, pool.z)
+                pygame.draw.circle(screen, (180, 50, 255), (int(psx), int(psy)), 2)
+
+        # Poison Spits
+        for spit in self.spits:
+            if getattr(spit, "alive", True) and camera.visible(spit.z):
+                ssx, ssy, sscale = camera.project(spit.x, spit.z)
+                if sscale > 0:
+                    pygame.draw.circle(screen, (120, 255, 50), (int(ssx), int(ssy)), max(3, int(10 * sscale)), width=2)
+
+        # Boss body hurtbox
+        if camera.visible(self.z):
+            sx, sy, scale = camera.project(self.x, self.z)
+            if scale > 0:
+                rw = max(10, int(60 * scale))
+                rh = max(6, int(30 * scale))
+                rect = pygame.Rect(sx - rw, sy - rh, rw * 2, rh * 2)
+                pygame.draw.ellipse(screen, (255, 140, 0), rect, width=2)
+                pygame.draw.line(screen, (255, 140, 0), (sx - 8, sy), (sx + 8, sy), 1)
+                pygame.draw.line(screen, (255, 140, 0), (sx, sy - 8), (sx, sy + 8), 1)
+
+        # Active bite danger area
+        if self.danger_rect and camera.visible(self.z):
+            min_x, max_x = self.danger_rect
+            p1 = camera.project(min_x, self.z)[:2]
+            p2 = camera.project(max_x, self.z)[:2]
+            p3 = camera.project(max_x, self.z - 300)[:2]
+            p4 = camera.project(min_x, self.z - 300)[:2]
+            pygame.draw.polygon(screen, (255, 0, 0), [p1, p2, p3, p4], width=2)
+
+
 
 
 BOSS_MAP = {
